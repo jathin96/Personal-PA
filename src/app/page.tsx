@@ -1,69 +1,302 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import type { Task, TaskPriority } from '@/types';
+import Header from '@/components/Header';
+import TaskBoard from '@/components/TaskBoard';
+import TaskList from '@/components/TaskList';
+import TaskCard from '@/components/TaskCard';
+import TaskDialog from '@/components/TaskDialog';
+import MobileNav from '@/components/MobileNav';
+import DailyBriefing from '@/components/DailyBriefing';
+import { Toaster, toast } from 'sonner';
+
+export default function DashboardPage() {
+  const router = useRouter();
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | 'ALL'>('ALL');
+  const [mobileTab, setMobileTab] = useState<'all' | 'today' | 'completed'>('all');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  // Check auth
+  useEffect(() => {
+    fetch('/api/auth')
+      .then(res => res.json())
+      .then(data => {
+        if (!data.authenticated) {
+          router.push('/login');
+        }
+      })
+      .catch(() => router.push('/login'));
+  }, [router]);
+
+  // Fetch tasks
+  const fetchTasks = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (search) params.set('search', search);
+      if (priorityFilter !== 'ALL') params.set('priority', priorityFilter);
+
+      const res = await fetch(`/api/tasks?${params}`);
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+      const data = await res.json();
+      setTasks(data);
+    } catch (err) {
+      console.error('Failed to fetch tasks:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [search, priorityFilter, router]);
+
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
+
+  // SSE for real-time sync
+  useEffect(() => {
+    const es = new EventSource('/api/events');
+    eventSourceRef.current = es;
+
+    es.onmessage = (event) => {
+      try {
+        const parsed = JSON.parse(event.data);
+        if (parsed.type === 'task_created' || parsed.type === 'task_updated') {
+          setTasks(prev => {
+            const existing = prev.findIndex(t => t.id === parsed.data.id);
+            if (existing >= 0) {
+              const updated = [...prev];
+              updated[existing] = parsed.data;
+              return updated;
+            }
+            return [parsed.data, ...prev];
+          });
+          if (parsed.type === 'task_created') {
+            toast.success(`Task created: ${parsed.data.title}`);
+          }
+        } else if (parsed.type === 'task_deleted') {
+          setTasks(prev => prev.filter(t => t.id !== parsed.data.id));
+        }
+      } catch {}
+    };
+
+    es.onerror = () => {
+      // Reconnect on error after 5s
+      es.close();
+      setTimeout(() => {
+        eventSourceRef.current = new EventSource('/api/events');
+      }, 5000);
+    };
+
+    return () => {
+      es.close();
+    };
+  }, []);
+
+  // Keyboard shortcut: N for new task
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault();
+        setDialogOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  // Task actions
+  const handleComplete = async (id: number) => {
+    try {
+      const res = await fetch(`/api/tasks/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'COMPLETED' }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setTasks(prev => prev.map(t => (t.id === id ? updated : t)));
+        toast.success('Task completed!');
+      }
+    } catch {
+      toast.error('Failed to complete task');
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setTasks(prev => prev.filter(t => t.id !== id));
+        toast.success('Task deleted');
+      }
+    } catch {
+      toast.error('Failed to delete task');
+    }
+  };
+
+  const handleEdit = (task: Task) => {
+    setEditingTask(task);
+    setDialogOpen(true);
+  };
+
+  const handleDialogSubmit = async (data: { title: string; description?: string; priority: TaskPriority; dueDate?: string }) => {
+    try {
+      if (editingTask) {
+        // Update
+        const res = await fetch(`/api/tasks/${editingTask.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        if (res.ok) {
+          const updated = await res.json();
+          setTasks(prev => prev.map(t => (t.id === editingTask.id ? updated : t)));
+          toast.success('Task updated!');
+        }
+      } else {
+        // Create
+        const res = await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        if (res.ok) {
+          const created = await res.json();
+          setTasks(prev => [created, ...prev]);
+          toast.success('Task created!');
+        }
+      }
+    } catch {
+      toast.error('Failed to save task');
+    }
+    setEditingTask(null);
+  };
+
+  const handleLogout = async () => {
+    await fetch('/api/auth', { method: 'DELETE' });
+    router.push('/login');
+  };
+
+  const handleDialogClose = () => {
+    setDialogOpen(false);
+    setEditingTask(null);
+  };
+
+  // Filter tasks by priority for display
+  const displayTasks = priorityFilter === 'ALL'
+    ? tasks
+    : tasks.filter(t => t.priority === priorityFilter);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center animate-pulse">
+            <span className="text-white text-sm font-bold">PA</span>
+          </div>
+          <p className="text-sm text-zinc-500">Loading...</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+      <Toaster
+        theme="dark"
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: '#18181b',
+            border: '1px solid #27272a',
+            color: '#fafafa',
+          },
+        }}
+      />
+
+      <Header
+        search={search}
+        onSearchChange={setSearch}
+        priorityFilter={priorityFilter}
+        onPriorityChange={setPriorityFilter}
+        onNewTask={() => { setEditingTask(null); setDialogOpen(true); }}
+        onLogout={handleLogout}
+      />
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Desktop layout: Kanban + sidebar */}
+        <div className="hidden sm:grid sm:grid-cols-[1fr_280px] lg:grid-cols-[1fr_320px] gap-6">
+          <TaskBoard
+            tasks={displayTasks}
+            onComplete={handleComplete}
+            onDelete={handleDelete}
+            onEdit={handleEdit}
+          />
+          <aside className="space-y-6">
+            <DailyBriefing tasks={tasks} />
+            <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4">
+              <p className="text-xs text-zinc-500 mb-2">⌨️ Shortcuts</p>
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="text-zinc-400">New task</span>
+                  <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded text-zinc-500 font-mono text-[10px]">N</kbd>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        {/* Mobile layout: List + bottom nav */}
+        <div className="sm:hidden">
+          {/* Mobile search */}
+          <div className="mb-4">
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search tasks..."
+                className="w-full pl-10 pr-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all"
+                id="mobile-search"
+              />
+            </div>
+          </div>
+
+          <TaskList
+            tasks={displayTasks}
+            filter={mobileTab}
+            onComplete={handleComplete}
+            onDelete={handleDelete}
+            onEdit={handleEdit}
+          />
         </div>
       </main>
+
+      {/* Mobile bottom nav */}
+      <MobileNav
+        active={mobileTab}
+        onChange={setMobileTab}
+        onNewTask={() => { setEditingTask(null); setDialogOpen(true); }}
+      />
+
+      {/* Task dialog */}
+      <TaskDialog
+        open={dialogOpen}
+        onClose={handleDialogClose}
+        onSubmit={handleDialogSubmit}
+        task={editingTask}
+      />
     </div>
   );
 }

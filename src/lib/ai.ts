@@ -260,7 +260,7 @@ export async function processMessage(text: string): Promise<string> {
     ];
 
     let response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       contents,
       config: {
         tools: [geminiTools],
@@ -290,7 +290,7 @@ export async function processMessage(text: string): Promise<string> {
       contents.push({ role: 'user', parts: functionResponses });
 
       response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.0-flash',
         contents,
         config: {
           tools: [geminiTools],
@@ -363,7 +363,7 @@ export async function transcribeVoice(audioBuffer: Buffer): Promise<string> {
     const base64Audio = audioBuffer.toString('base64');
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       contents: [
         {
           role: 'user',

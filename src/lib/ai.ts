@@ -276,10 +276,11 @@ export async function processMessage(text: string): Promise<string> {
       const functionResponses: any[] = [];
 
       for (const call of functionCalls) {
-        const result = await executeTool(call.name, call.args);
+        const toolName = call.name || '';
+        const result = await executeTool(toolName, call.args);
         functionResponses.push({
           functionResponse: {
-            name: call.name,
+            name: toolName,
             response: result,
           },
         });
@@ -323,13 +324,15 @@ export async function processMessage(text: string): Promise<string> {
       messages.push(assistantMessage);
 
       for (const toolCall of assistantMessage.tool_calls) {
-        const args = JSON.parse(toolCall.function.arguments);
-        const result = await executeTool(toolCall.function.name, args);
-        messages.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: JSON.stringify(result),
-        });
+        if ('function' in toolCall && toolCall.function) {
+          const args = JSON.parse(toolCall.function.arguments);
+          const result = await executeTool(toolCall.function.name, args);
+          messages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: JSON.stringify(result),
+          });
+        }
       }
 
       response = await openai.chat.completions.create({
@@ -384,7 +387,7 @@ export async function transcribeVoice(audioBuffer: Buffer): Promise<string> {
 
   if (openaiKey && openaiKey !== 'your_ai_key') {
     const openai = new OpenAI({ apiKey: openaiKey });
-    const file = new File([audioBuffer], 'voice.ogg', { type: 'audio/ogg' });
+    const file = new File([new Uint8Array(audioBuffer)], 'voice.ogg', { type: 'audio/ogg' });
     const transcription = await openai.audio.transcriptions.create({
       model: 'whisper-1',
       file,

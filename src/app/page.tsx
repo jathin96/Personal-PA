@@ -23,18 +23,6 @@ export default function DashboardPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  // Check auth
-  useEffect(() => {
-    fetch('/api/auth')
-      .then(res => res.json())
-      .then(data => {
-        if (!data.authenticated) {
-          router.push('/login');
-        }
-      })
-      .catch(() => router.push('/login'));
-  }, [router]);
-
   // Fetch tasks
   const fetchTasks = useCallback(async () => {
     try {
@@ -43,18 +31,16 @@ export default function DashboardPage() {
       if (priorityFilter !== 'ALL') params.set('priority', priorityFilter);
 
       const res = await fetch(`/api/tasks?${params}`);
-      if (res.status === 401) {
-        router.push('/login');
-        return;
+      if (res.ok) {
+        const data = await res.json();
+        setTasks(data);
       }
-      const data = await res.json();
-      setTasks(data);
     } catch (err) {
       console.error('Failed to fetch tasks:', err);
     } finally {
       setLoading(false);
     }
-  }, [search, priorityFilter, router]);
+  }, [search, priorityFilter]);
 
   useEffect(() => {
     fetchTasks();
@@ -180,11 +166,6 @@ export default function DashboardPage() {
     setEditingTask(null);
   };
 
-  const handleLogout = async () => {
-    await fetch('/api/auth', { method: 'DELETE' });
-    router.push('/login');
-  };
-
   const handleDialogClose = () => {
     setDialogOpen(false);
     setEditingTask(null);
@@ -228,7 +209,6 @@ export default function DashboardPage() {
         priorityFilter={priorityFilter}
         onPriorityChange={setPriorityFilter}
         onNewTask={() => { setEditingTask(null); setDialogOpen(true); }}
-        onLogout={handleLogout}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

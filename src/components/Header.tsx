@@ -9,10 +9,9 @@ interface HeaderProps {
   priorityFilter: TaskPriority | 'ALL';
   onPriorityChange: (val: TaskPriority | 'ALL') => void;
   onNewTask: () => void;
-  onLogout: () => void;
 }
 
-export default function Header({ search, onSearchChange, priorityFilter, onPriorityChange, onNewTask, onLogout }: HeaderProps) {
+export default function Header({ search, onSearchChange, priorityFilter, onPriorityChange, onNewTask }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-800/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -64,17 +63,6 @@ export default function Header({ search, onSearchChange, priorityFilter, onPrior
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               New Task
-            </button>
-
-            {/* Logout */}
-            <button
-              onClick={onLogout}
-              className="p-2 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 rounded-xl transition-all"
-              title="Logout"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
             </button>
           </div>
         </div>

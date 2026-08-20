@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Task, TaskPriority } from '@/types';
+import type { Task } from '@/types';
 import Header from '@/components/Header';
 import TaskBoard from '@/components/TaskBoard';
 import TaskList from '@/components/TaskList';
@@ -62,21 +62,12 @@ export default function DashboardPage() {
             }
             return [parsed.data, ...prev];
           });
-          if (parsed.type === 'task_created') {
-            toast.success(`Task created: ${parsed.data.title}`);
-          }
         } else if (parsed.type === 'task_deleted') {
           setTasks(prev => prev.filter(t => t.id !== parsed.data.id));
         }
-      } catch {}
-    };
-
-    es.onerror = () => {
-      // Reconnect on error after 5s
-      es.close();
-      setTimeout(() => {
-        eventSourceRef.current = new EventSource('/api/events');
-      }, 5000);
+      } catch (err) {
+        console.error('SSE parse error:', err);
+      }
     };
 
     return () => {
@@ -84,16 +75,20 @@ export default function DashboardPage() {
     };
   }, []);
 
-  // Keyboard shortcut: N for new task
+  // Keyboard shortcuts (N for new task)
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key.toLowerCase() === 'n' &&
+        !['input', 'textarea'].includes((e.target as HTMLElement).tagName.toLowerCase())
+      ) {
         e.preventDefault();
+        setEditingTask(null);
         setDialogOpen(true);
       }
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   // Task actions
@@ -107,7 +102,7 @@ export default function DashboardPage() {
       if (res.ok) {
         const updated = await res.json();
         setTasks(prev => prev.map(t => (t.id === id ? updated : t)));
-        toast.success('Task completed!');
+        toast.success('Task completed! 🎉');
       }
     } catch {
       toast.error('Failed to complete task');
@@ -131,7 +126,7 @@ export default function DashboardPage() {
     setDialogOpen(true);
   };
 
-  const handleDialogSubmit = async (data: { title: string; description?: string; priority: TaskPriority; dueDate?: string }) => {
+  const handleDialogSubmit = async (data: { title: string; description?: string; dueDate?: string }) => {
     try {
       if (editingTask) {
         // Update
@@ -245,7 +240,7 @@ export default function DashboardPage() {
           </div>
 
           <TaskList
-            tasks={displayTasks}
+            tasks={tasks}
             filter={mobileTab}
             onComplete={handleComplete}
             onDelete={handleDelete}

@@ -6,14 +6,13 @@ import type { Task, TaskPriority } from '@/types';
 interface TaskDialogProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: { title: string; description?: string; priority: TaskPriority; dueDate?: string }) => void;
+  onSubmit: (data: { title: string; description?: string; dueDate?: string }) => void;
   task?: Task | null; // If provided, we're editing
 }
 
 export default function TaskDialog({ open, onClose, onSubmit, task }: TaskDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [priority, setPriority] = useState<TaskPriority>('MEDIUM');
   const [dueDate, setDueDate] = useState('');
   const [dueTime, setDueTime] = useState('');
 
@@ -21,7 +20,6 @@ export default function TaskDialog({ open, onClose, onSubmit, task }: TaskDialog
     if (task) {
       setTitle(task.title);
       setDescription(task.description || '');
-      setPriority(task.priority);
       if (task.dueDate) {
         const d = new Date(task.dueDate);
         setDueDate(d.toISOString().split('T')[0]);
@@ -33,7 +31,6 @@ export default function TaskDialog({ open, onClose, onSubmit, task }: TaskDialog
     } else {
       setTitle('');
       setDescription('');
-      setPriority('MEDIUM');
       setDueDate('');
       setDueTime('');
     }
@@ -52,7 +49,6 @@ export default function TaskDialog({ open, onClose, onSubmit, task }: TaskDialog
     onSubmit({
       title: title.trim(),
       description: description.trim() || undefined,
-      priority,
       dueDate: dueDateISO,
     });
     onClose();
@@ -99,30 +95,6 @@ export default function TaskDialog({ open, onClose, onSubmit, task }: TaskDialog
               />
             </div>
 
-            {/* Priority */}
-            <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1.5">Priority</label>
-              <div className="flex gap-2">
-                {(['LOW', 'MEDIUM', 'HIGH'] as TaskPriority[]).map(p => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setPriority(p)}
-                    className={`flex-1 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
-                      priority === p
-                        ? p === 'HIGH'
-                          ? 'bg-red-500/20 text-red-400 ring-1 ring-red-500/50'
-                          : p === 'MEDIUM'
-                          ? 'bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/50'
-                          : 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/50'
-                        : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700'
-                    }`}
-                  >
-                    {p === 'HIGH' ? '🔴' : p === 'MEDIUM' ? '🟡' : '🟢'} {p}
-                  </button>
-                ))}
-              </div>
-            </div>
 
             {/* Due Date & Time */}
             <div className="grid grid-cols-2 gap-3">

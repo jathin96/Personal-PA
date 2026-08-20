@@ -6,12 +6,10 @@ import type { TaskPriority } from '@/types';
 interface HeaderProps {
   search: string;
   onSearchChange: (val: string) => void;
-  priorityFilter: TaskPriority | 'ALL';
-  onPriorityChange: (val: TaskPriority | 'ALL') => void;
   onNewTask: () => void;
 }
 
-export default function Header({ search, onSearchChange, priorityFilter, onPriorityChange, onNewTask }: HeaderProps) {
+export default function Header({ search, onSearchChange, onNewTask }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-800/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -42,18 +40,6 @@ export default function Header({ search, onSearchChange, priorityFilter, onPrior
 
           {/* Actions */}
           <div className="flex items-center gap-2">
-            {/* Priority filter */}
-            <select
-              value={priorityFilter}
-              onChange={e => onPriorityChange(e.target.value as TaskPriority | 'ALL')}
-              className="hidden sm:block px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-zinc-300 focus:outline-none focus:ring-2 focus:ring-violet-500/50 appearance-none cursor-pointer"
-            >
-              <option value="ALL">All Priorities</option>
-              <option value="HIGH">🔴 High</option>
-              <option value="MEDIUM">🟡 Medium</option>
-              <option value="LOW">🟢 Low</option>
-            </select>
-
             {/* New task button */}
             <button
               onClick={onNewTask}

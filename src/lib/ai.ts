@@ -10,7 +10,7 @@ const SYSTEM_PROMPT = `You are a strictly concise personal assistant for managin
 STRICT BEHAVIOR RULES:
 1. When creating, completing, rescheduling, or deleting a task: reply with ONLY "OK". No extra words, no chit-chat, no explanations.
 2. When answering queries (e.g. listing tasks, searching, or checking the schedule): answer ONLY what was asked directly and concisely. No greetings, no polite fillers, no tips.
-3. When creating tasks, infer reasonable defaults (priority: LOW, MEDIUM, or HIGH, due date) from context.
+3. When creating tasks, infer reasonable defaults (due date) from context.
 4. For date/time references like "tomorrow", "next Monday", "in 2 hours", calculate the actual ISO date/time. The user's timezone is {{USER_TIMEZONE}}. Current date/time: {{CURRENT_TIME}}
 5. Always execute the appropriate tool function.`;
 
@@ -27,7 +27,6 @@ const geminiTools: { functionDeclarations: FunctionDeclaration[] } = {
         properties: {
           title: { type: Type.STRING, description: 'Title of the task' },
           due_date: { type: Type.STRING, description: 'ISO 8601 due date/time (optional)' },
-          priority: { type: Type.STRING, enum: ['LOW', 'MEDIUM', 'HIGH'], description: 'Task priority' },
           description: { type: Type.STRING, description: 'Additional details about the task' },
         },
         required: ['title'],
@@ -35,13 +34,12 @@ const geminiTools: { functionDeclarations: FunctionDeclaration[] } = {
     },
     {
       name: 'list_tasks',
-      description: 'List tasks, optionally filtered by status, date, or priority',
+      description: 'List tasks, optionally filtered by status or date',
       parameters: {
         type: Type.OBJECT,
         properties: {
           status: { type: Type.STRING, enum: ['PENDING', 'COMPLETED', 'CANCELLED'] },
           filter_date: { type: Type.STRING, description: 'ISO date to filter by (shows tasks due on that date)' },
-          priority: { type: Type.STRING, enum: ['LOW', 'MEDIUM', 'HIGH'] },
         },
       },
     },
@@ -107,7 +105,6 @@ const openaiTools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
         properties: {
           title: { type: 'string', description: 'Title of the task' },
           due_date: { type: 'string', description: 'ISO 8601 due date/time (optional)' },
-          priority: { type: 'string', enum: ['LOW', 'MEDIUM', 'HIGH'], description: 'Task priority' },
           description: { type: 'string', description: 'Additional details about the task' },
         },
         required: ['title'],
@@ -118,13 +115,12 @@ const openaiTools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'list_tasks',
-      description: 'List tasks, optionally filtered by status, date, or priority',
+      description: 'List tasks, optionally filtered by status or date',
       parameters: {
         type: 'object',
         properties: {
           status: { type: 'string', enum: ['PENDING', 'COMPLETED', 'CANCELLED'] },
           filter_date: { type: 'string', description: 'ISO date to filter by' },
-          priority: { type: 'string', enum: ['LOW', 'MEDIUM', 'HIGH'] },
         },
       },
     },

@@ -49,12 +49,22 @@ function setupHandlers(bot: Bot) {
     );
   });
 
+
   // Text messages -> AI
   bot.on('message:text', async (ctx) => {
+    console.log(`📩 Received message from ${ctx.chat?.id}: "${ctx.message.text}"`);
     try {
       await ctx.replyWithChatAction('typing');
       const response = await processMessage(ctx.message.text);
-      
+      console.log(`🤖 AI Response: "${response}"`);
+
+      // Send response
+      try {
+        await ctx.reply(response, { parse_mode: 'Markdown' });
+      } catch {
+        await ctx.reply(response);
+      }
+
       // Check if the response mentions listing tasks - add inline buttons
       const pendingTasks = await taskService.listTasks({ status: 'PENDING' });
       if (pendingTasks.length > 0 && (ctx.message.text.toLowerCase().includes('list') || 
@@ -62,21 +72,17 @@ function setupHandlers(bot: Bot) {
           ctx.message.text.toLowerCase().includes('what') ||
           ctx.message.text.toLowerCase().includes('plate') ||
           ctx.message.text.toLowerCase().includes('today'))) {
-        await ctx.reply(response, { parse_mode: 'Markdown' });
         // Send interactive buttons for top 5 pending tasks
         for (const task of pendingTasks.slice(0, 5)) {
           const keyboard = new InlineKeyboard()
             .text('✅ Done', `complete_${task.id}`)
             .text('⏰ +1 Day', `postpone_${task.id}`);
-          const priorityEmoji = task.priority === 'HIGH' ? '🔴' : task.priority === 'MEDIUM' ? '🟡' : '🟢';
-          await ctx.reply(`${priorityEmoji} #${task.id}: ${task.title}`, { reply_markup: keyboard });
+          await ctx.reply(`📋 #${task.id}: ${task.title}`, { reply_markup: keyboard });
         }
-      } else {
-        await ctx.reply(response, { parse_mode: 'Markdown' });
       }
     } catch (error: any) {
       console.error('AI processing error:', error);
-      await ctx.reply('⚠️ Sorry, I ran into an issue processing that. Please try again.');
+      await ctx.reply(`⚠️ Issue processing request: ${error.message || 'Please try again.'}`);
     }
   });
 
@@ -120,8 +126,7 @@ function setupHandlers(bot: Bot) {
       const task = await taskService.rescheduleTask(taskId, tomorrow.toISOString());
       if (task) {
         await ctx.answerCallbackQuery({ text: `⏰ Postponed to tomorrow!` });
-        const priorityEmoji = task.priority === 'HIGH' ? '🔴' : task.priority === 'MEDIUM' ? '🟡' : '🟢';
-        await ctx.editMessageText(`${priorityEmoji} #${task.id}: ${task.title} — ⏰ Moved to tomorrow`);
+        await ctx.editMessageText(`📋 #${task.id}: ${task.title} — ⏰ Moved to tomorrow`);
       } else {
         await ctx.answerCallbackQuery({ text: '❌ Task not found' });
       }
@@ -149,9 +154,8 @@ export async function sendBriefing(): Promise<void> {
   if (briefing.today.length > 0) {
     message += '📋 *Due Today:*\n';
     briefing.today.forEach(t => {
-      const priorityEmoji = t.priority === 'HIGH' ? '🔴' : t.priority === 'MEDIUM' ? '🟡' : '🟢';
       const time = t.dueDate ? new Date(t.dueDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '';
-      message += `  ${priorityEmoji} ${t.title}${time ? ` at ${time}` : ''}\n`;
+      message += `  • ${t.title}${time ? ` at ${time}` : ''}\n`;
     });
     message += '\n';
   }

@@ -3,12 +3,6 @@
 import { useState, useRef } from 'react';
 import type { Task } from '@/types';
 
-const priorityConfig = {
-  HIGH: { color: 'bg-red-500', text: 'text-red-400', label: 'High', icon: '🔴' },
-  MEDIUM: { color: 'bg-amber-500', text: 'text-amber-400', label: 'Medium', icon: '🟡' },
-  LOW: { color: 'bg-emerald-500', text: 'text-emerald-400', label: 'Low', icon: '🟢' },
-};
-
 interface TaskCardProps {
   task: Task;
   onComplete: (id: number) => void;
@@ -20,7 +14,6 @@ export default function TaskCard({ task, onComplete, onDelete, onEdit }: TaskCar
   const [swiping, setSwiping] = useState(false);
   const [swipeX, setSwipeX] = useState(0);
   const touchStartX = useRef(0);
-  const config = priorityConfig[task.priority];
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -84,12 +77,8 @@ export default function TaskCard({ task, onComplete, onDelete, onEdit }: TaskCar
       )}
 
       <div className="p-4">
-        {/* Header: Priority + ID */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${config.color}`}></span>
-            <span className={`text-xs font-medium ${config.text}`}>{config.label}</span>
-          </div>
+        {/* Header: ID */}
+        <div className="flex items-center justify-end mb-1">
           <span className="text-xs text-zinc-600 font-mono">#{task.id}</span>
         </div>
 

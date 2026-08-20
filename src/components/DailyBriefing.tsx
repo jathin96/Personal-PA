@@ -53,20 +53,17 @@ export default function DailyBriefing({ tasks }: DailyBriefingProps) {
       {todayTasks.length > 0 ? (
         <div className="space-y-2">
           <p className="text-xs font-medium text-zinc-400 mb-2">📋 Today&apos;s Tasks</p>
-          {todayTasks.map(t => {
-            const priorityColor = t.priority === 'HIGH' ? 'bg-red-500' : t.priority === 'MEDIUM' ? 'bg-amber-500' : 'bg-emerald-500';
-            return (
-              <div key={t.id} className="flex items-center gap-2 py-1.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${priorityColor}`} />
-                <span className="text-xs text-zinc-300 truncate flex-1">{t.title}</span>
-                {t.dueDate && (
-                  <span className="text-[10px] text-zinc-600">
-                    {new Date(t.dueDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                )}
-              </div>
-            );
-          })}
+          {todayTasks.map(t => (
+            <div key={t.id} className="flex items-center gap-2 py-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
+              <span className="text-xs text-zinc-300 truncate flex-1">{t.title}</span>
+              {t.dueDate && (
+                <span className="text-[10px] text-zinc-600">
+                  {new Date(t.dueDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
+          ))}
         </div>
       ) : (
         <p className="text-xs text-zinc-600 text-center py-3">No tasks due today 🎉</p>

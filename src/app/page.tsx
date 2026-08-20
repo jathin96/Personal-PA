@@ -17,7 +17,6 @@ export default function DashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | 'ALL'>('ALL');
   const [mobileTab, setMobileTab] = useState<'all' | 'today' | 'completed'>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -28,7 +27,6 @@ export default function DashboardPage() {
     try {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
-      if (priorityFilter !== 'ALL') params.set('priority', priorityFilter);
 
       const res = await fetch(`/api/tasks?${params}`);
       if (res.ok) {
@@ -40,7 +38,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, priorityFilter]);
+  }, [search]);
 
   useEffect(() => {
     fetchTasks();
@@ -171,11 +169,6 @@ export default function DashboardPage() {
     setEditingTask(null);
   };
 
-  // Filter tasks by priority for display
-  const displayTasks = priorityFilter === 'ALL'
-    ? tasks
-    : tasks.filter(t => t.priority === priorityFilter);
-
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -206,8 +199,6 @@ export default function DashboardPage() {
       <Header
         search={search}
         onSearchChange={setSearch}
-        priorityFilter={priorityFilter}
-        onPriorityChange={setPriorityFilter}
         onNewTask={() => { setEditingTask(null); setDialogOpen(true); }}
       />
 
@@ -215,7 +206,7 @@ export default function DashboardPage() {
         {/* Desktop layout: Kanban + sidebar */}
         <div className="hidden sm:grid sm:grid-cols-[1fr_280px] lg:grid-cols-[1fr_320px] gap-6">
           <TaskBoard
-            tasks={displayTasks}
+            tasks={tasks}
             onComplete={handleComplete}
             onDelete={handleDelete}
             onEdit={handleEdit}
